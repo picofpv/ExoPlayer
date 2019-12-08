@@ -23,6 +23,7 @@ import com.google.android.exoplayer2.Format;
 import com.google.android.exoplayer2.SeekParameters;
 import com.google.android.exoplayer2.drm.DrmInitData;
 import com.google.android.exoplayer2.extractor.Extractor;
+import com.google.android.exoplayer2.metadata.Metadata;
 import com.google.android.exoplayer2.offline.StreamKey;
 import com.google.android.exoplayer2.source.CompositeSequenceableLoaderFactory;
 import com.google.android.exoplayer2.source.MediaPeriod;
@@ -70,6 +71,7 @@ public final class HlsMediaPeriod implements MediaPeriod, HlsSampleStreamWrapper
   private final TimestampAdjusterProvider timestampAdjusterProvider;
   private final CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory;
   private final boolean allowChunklessPreparation;
+  private final @HlsMetadataType int metadataType;
   private final boolean useSessionKeys;
 
   private @Nullable Callback callback;
@@ -109,6 +111,7 @@ public final class HlsMediaPeriod implements MediaPeriod, HlsSampleStreamWrapper
       Allocator allocator,
       CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory,
       boolean allowChunklessPreparation,
+      @HlsMetadataType int metadataType,
       boolean useSessionKeys) {
     this.extractorFactory = extractorFactory;
     this.playlistTracker = playlistTracker;
@@ -119,6 +122,7 @@ public final class HlsMediaPeriod implements MediaPeriod, HlsSampleStreamWrapper
     this.allocator = allocator;
     this.compositeSequenceableLoaderFactory = compositeSequenceableLoaderFactory;
     this.allowChunklessPreparation = allowChunklessPreparation;
+    this.metadataType = metadataType;
     this.useSessionKeys = useSessionKeys;
     compositeSequenceableLoader =
         compositeSequenceableLoaderFactory.createCompositeSequenceableLoader();
@@ -735,7 +739,8 @@ public final class HlsMediaPeriod implements MediaPeriod, HlsSampleStreamWrapper
         positionUs,
         muxedAudioFormat,
         loadErrorHandlingPolicy,
-        eventDispatcher);
+        eventDispatcher,
+        metadataType);
   }
 
   private static Map<String, DrmInitData> deriveOverridingDrmInitData(
@@ -773,6 +778,7 @@ public final class HlsMediaPeriod implements MediaPeriod, HlsSampleStreamWrapper
         variantFormat.containerMimeType,
         sampleMimeType,
         codecs,
+        variantFormat.metadata,
         variantFormat.bitrate,
         variantFormat.width,
         variantFormat.height,
@@ -785,6 +791,7 @@ public final class HlsMediaPeriod implements MediaPeriod, HlsSampleStreamWrapper
   private static Format deriveAudioFormat(
       Format variantFormat, Format mediaTagFormat, boolean isPrimaryTrackInVariant) {
     String codecs;
+    Metadata metadata;
     int channelCount = Format.NO_VALUE;
     int selectionFlags = 0;
     int roleFlags = 0;
@@ -792,6 +799,7 @@ public final class HlsMediaPeriod implements MediaPeriod, HlsSampleStreamWrapper
     String label = null;
     if (mediaTagFormat != null) {
       codecs = mediaTagFormat.codecs;
+      metadata = mediaTagFormat.metadata;
       channelCount = mediaTagFormat.channelCount;
       selectionFlags = mediaTagFormat.selectionFlags;
       roleFlags = mediaTagFormat.roleFlags;
@@ -799,6 +807,7 @@ public final class HlsMediaPeriod implements MediaPeriod, HlsSampleStreamWrapper
       label = mediaTagFormat.label;
     } else {
       codecs = Util.getCodecsOfType(variantFormat.codecs, C.TRACK_TYPE_AUDIO);
+      metadata = variantFormat.metadata;
       if (isPrimaryTrackInVariant) {
         channelCount = variantFormat.channelCount;
         selectionFlags = variantFormat.selectionFlags;
@@ -815,6 +824,7 @@ public final class HlsMediaPeriod implements MediaPeriod, HlsSampleStreamWrapper
         variantFormat.containerMimeType,
         sampleMimeType,
         codecs,
+        metadata,
         bitrate,
         channelCount,
         /* sampleRate= */ Format.NO_VALUE,

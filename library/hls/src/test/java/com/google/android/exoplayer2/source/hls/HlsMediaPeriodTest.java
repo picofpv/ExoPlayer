@@ -91,6 +91,7 @@ public final class HlsMediaPeriodTest {
               mock(Allocator.class),
               mock(CompositeSequenceableLoaderFactory.class),
               /* allowChunklessPreparation =*/ true,
+              HlsMetadataType.ID3,
               /* useSessionKeys= */ false);
         };
 
@@ -127,6 +128,7 @@ public final class HlsMediaPeriodTest {
             /* containerMimeType= */ MimeTypes.APPLICATION_M3U8,
             /* sampleMimeType= */ null,
             /* codecs= */ "avc1.100.41,mp4a.40.2",
+            /* metadata= */ null,
             bitrate,
             /* width= */ Format.NO_VALUE,
             /* height= */ Format.NO_VALUE,
@@ -144,6 +146,7 @@ public final class HlsMediaPeriodTest {
             /* containerMimeType= */ MimeTypes.APPLICATION_M3U8,
             /* sampleMimeType= */ null,
             /* codecs= */ "mp4a.40.2",
+            /* metadata= */ null,
             bitrate,
             /* width= */ Format.NO_VALUE,
             /* height= */ Format.NO_VALUE,
@@ -176,6 +179,7 @@ public final class HlsMediaPeriodTest {
         /* containerMimeType= */ MimeTypes.APPLICATION_M3U8,
         MimeTypes.getMediaMimeType("mp4a.40.2"),
         /* codecs= */ "mp4a.40.2",
+        /* metadata= */ null,
         /* bitrate= */ Format.NO_VALUE,
         /* channelCount= */ Format.NO_VALUE,
         /* sampleRate= */ Format.NO_VALUE,

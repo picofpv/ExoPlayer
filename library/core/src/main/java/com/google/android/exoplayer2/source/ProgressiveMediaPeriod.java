@@ -33,6 +33,7 @@ import com.google.android.exoplayer2.extractor.SeekMap;
 import com.google.android.exoplayer2.extractor.SeekMap.SeekPoints;
 import com.google.android.exoplayer2.extractor.SeekMap.Unseekable;
 import com.google.android.exoplayer2.extractor.TrackOutput;
+import com.google.android.exoplayer2.extractor.mp3.Mp3Extractor;
 import com.google.android.exoplayer2.metadata.Metadata;
 import com.google.android.exoplayer2.metadata.icy.IcyHeaders;
 import com.google.android.exoplayer2.source.MediaSourceEventListener.EventDispatcher;
@@ -325,7 +326,10 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
 
   @Override
   public boolean continueLoading(long playbackPositionUs) {
-    if (loadingFinished || pendingDeferredRetry || (prepared && enabledTrackCount == 0)) {
+    if (loadingFinished
+        || loader.hasFatalError()
+        || pendingDeferredRetry
+        || (prepared && enabledTrackCount == 0)) {
       return false;
     }
     boolean continuedLoading = loadCondition.open();
@@ -410,6 +414,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     if (loader.isLoading()) {
       loader.cancelLoading();
     } else {
+      loader.clearFatalError();
       for (SampleQueue sampleQueue : sampleQueues) {
         sampleQueue.reset();
       }
@@ -733,7 +738,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     if (prepared) {
       SeekMap seekMap = getPreparedState().seekMap;
       Assertions.checkState(isPendingReset());
-      if (durationUs != C.TIME_UNSET && pendingResetPositionUs >= durationUs) {
+      if (durationUs != C.TIME_UNSET && pendingResetPositionUs > durationUs) {
         loadingFinished = true;
         pendingResetPositionUs = C.TIME_UNSET;
         return;
@@ -945,6 +950,12 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
           }
           input = new DefaultExtractorInput(extractorDataSource, position, length);
           Extractor extractor = extractorHolder.selectExtractor(input, extractorOutput, uri);
+
+          // MP3 live streams commonly have seekable metadata, despite being unseekable.
+          if (icyHeaders != null && extractor instanceof Mp3Extractor) {
+            ((Mp3Extractor) extractor).disableSeeking();
+          }
+
           if (pendingExtractorSeek) {
             extractor.seek(position, seekTimeUs);
             pendingExtractorSeek = false;
@@ -1042,21 +1053,28 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
       if (extractor != null) {
         return extractor;
       }
-      for (Extractor extractor : extractors) {
-        try {
-          if (extractor.sniff(input)) {
-            this.extractor = extractor;
-            break;
+      if (extractors.length == 1) {
+        this.extractor = extractors[0];
+      } else {
+        for (Extractor extractor : extractors) {
+          try {
+            if (extractor.sniff(input)) {
+              this.extractor = extractor;
+              break;
+            }
+          } catch (EOFException e) {
+            // Do nothing.
+          } finally {
+            input.resetPeekPosition();
           }
-        } catch (EOFException e) {
-          // Do nothing.
-        } finally {
-          input.resetPeekPosition();
         }
-      }
-      if (extractor == null) {
-        throw new UnrecognizedInputFormatException("None of the available extractors ("
-            + Util.getCommaDelimitedSimpleClassNames(extractors) + ") could read the stream.", uri);
+        if (extractor == null) {
+          throw new UnrecognizedInputFormatException(
+              "None of the available extractors ("
+                  + Util.getCommaDelimitedSimpleClassNames(extractors)
+                  + ") could read the stream.",
+              uri);
+        }
       }
       extractor.init(output);
       return extractor;
